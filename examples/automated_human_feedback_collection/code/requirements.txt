@@ -41,7 +41,7 @@ networkx==3.1
 numpy==1.24.3
 opencv-python==4.7.0.72
 orjson==3.9.1
-oxenai==0.1.17
+oxenai==0.1.22
 packaging==23.1
 pandas==2.0.1
 Pillow==9.5.0
