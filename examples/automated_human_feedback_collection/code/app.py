@@ -14,12 +14,15 @@ repo.checkout("dev")
 
 # Config model training
 pipe = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
+# pipe = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-0.9", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
 pipe.to("cuda")
 
 IMAGE_DEST="images"
+NUM_IMAGES = 4
+
 
 def generate_images(prompt):
-    images = pipe(prompt, guidance_scale=7.5, num_images_per_prompt=4).images
+    images = pipe(prompt, guidance_scale=7.5, num_images_per_prompt=NUM_IMAGES).images
     return images
 
 def get_rating(label):
@@ -57,7 +60,7 @@ with gr.Blocks() as demo:
     upvote_buttons = {}
     downvote_buttons = {}
     with gr.Row():
-        for i in range(1,5):
+        for i in range(1,1+NUM_IMAGES):
             with gr.Column(min_width=0, scale=1):
                 images[i] = gr.components.Image(label=f"Candidate Image {i}", type='pil').style(full_width=False)
                 with gr.Row(min_width=0, scale=1):
@@ -65,7 +68,7 @@ with gr.Blocks() as demo:
                     downvote_buttons[i] = gr.Button(value="👎", min_width=10)
     
     generate.click(generate_images, inputs=prompt, outputs=list(images.values()))
-    for i in range(1,5):
+    for i in range(1,1+NUM_IMAGES):
         upvote_buttons[i].click(save_image_to_repo, inputs=[prompt, images[i], upvote_buttons[i]])
         downvote_buttons[i].click(save_image_to_repo, inputs=[prompt, images[i], downvote_buttons[i]])
 
