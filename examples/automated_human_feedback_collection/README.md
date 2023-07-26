@@ -128,7 +128,7 @@ def generate_images(prompt):
   return images
 ```
 
-…and that’s all it takes! Test it out by generating an image from any prompt you can think of, noting that this might take some time depending on your machine’s GPU specs. Our Lambda Labs instance (specs listed earlier) took ~15 seconds to generate four images.
+…and that’s all it takes! Test it out by generating an image from any prompt you can think of, noting that this might take some time depending on your machine’s GPU specs. Our Lambda Labs instance (specs listed earlier) took ~30 seconds to generate four images.
 
 You can check its progress through 50 inference steps in the terminal where your `gradio` app is running.
 ![A UI showing generation of four images from a Stable Diffusion model](images/first-pass-oxen.png)
