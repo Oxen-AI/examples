@@ -23,8 +23,6 @@ Dreambooth excels at teaching models new tokens which weren't present in the ori
 Here's a quick preview of the results we'll be able to achieve with only a few minutes of training on only six images.
 
 
-
-
 **Before Dreambooth:**
 ![4 generated images under the prompt "an image of a happy white fluffy cartoon ox eating almonds", showing limited coherence / consistency](images/happy-fluffy-before.png)
 ![4 generated images under the prompt "the oxenai ox eating almonds", showing limited coherence / consistency](images/oxenai-ox-before.png)
@@ -202,6 +200,6 @@ At OxenAI we want to see what you are building! Reach out at hello@oxen.ai, foll
 
 And remember—for every star on [GitHub](https://github.com/Oxen-AI/oxen-release), an ox gets its wings.
 
-No, really—we hooked up an Oxen Repo to a GitHub webhook to generate and save a Stable Diffusion image every time we get a star. [Go find yours!](https://oxen.ai/ox/FlyingOxen) 
+No, really...we hooked up an [Oxen repo](https://oxen.ai/ox/FlyingOxen) to a GitHub web-hook that runs Stable Diffusion every time we get a star. [Go find yours!](https://oxen.ai/ox/FlyingOxen) 
 
 ![An AI-generated image of a purple, magestic, winged space ox](images/winged.png)
