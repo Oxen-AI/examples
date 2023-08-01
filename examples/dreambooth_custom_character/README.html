@@ -1,0 +1,130 @@
+<h1 id="creating-a-cute-custom-character-with-stable-diffusion-and-dreambooth">Creating a Cute Custom Character with Stable Diffusion and Dreambooth</h1>
+<h2 id="introduction">Introduction</h2>
+<p><a href="https://github.com/CompVis/stable-diffusion">Stable Diffusion</a> is an incredible open-source tool for fast, effective generation of novel images across a wide variety of domains. Despite its power and convenience, it can struggle to create consistent, identifiable characters in specific styles.</p>
+<p>At <a href="https://oxen.ai/">Oxen</a>, we’re firm believers in the power of enhancing foundational models with domain-specific data. In this tutorial, we’ll use an Oxen repository and the <a href="https://dreambooth.github.io/">Dreambooth</a> fine-tuning technique to create a Stable Diffusion variant that can consistently reproduce cute, fluffy cartoon oxen like the one currently hanging out on our 404 page.</p>
+<figure>
+<img src="images/404.png" alt="The 404 Not Found page for oxen.ai, showing a cute cartoon ox" /><figcaption aria-hidden="true">The 404 Not Found page for oxen.ai, showing a cute cartoon ox</figcaption>
+</figure>
+<h3 id="why-fine-tune">Why fine-tune?</h3>
+<p>While improvements in prompting can mitigate Stable Diffusion’s limitations to some extent, it is almost always a better bet to fine-tune the model with your own data. Here are a few reasons why:</p>
+<ol type="1">
+<li>No amount of clever prompting can lead the neural network to generate things it hasn’t seen enough of in its training data. We’re pretty confident there wasn’t a preponderance of fluffy cartoon oxen in <a href="https://laion.ai/blog/laion-5b/">Stable Diffusion’s training data</a>, which leads to the lackluster baseline results we’ll show below. It’s much easier for us to provide this information to the model directly than to wait and hope that a future version of Stable Diffusion will somehow find and include precisely the data we’re looking for.</li>
+<li>If you train or fine-tune open source models with your own data rather than remaining beholden to third-party services, you can embed the model directly into your application. This will likely save you money over purchasing credits to existing providers, and eliminate your dependency on a vendor that could change its API / pricing or stop operating at any time.</li>
+<li>Fine-tuning with your own proprietary data allows you to gain a competitive advantage that you can’t access with prompting alone. If your IP relies solely on the specific way you prompt a publicly accessible model, it’s much easier for competitors to replicate your results!</li>
+</ol>
+<h3 id="fine-tuning-new-tokens">Fine-tuning new tokens</h3>
+<p>Dreambooth excels at teaching models new tokens which weren’t present in the original training data. This makes it perfect for generating novel, named characters—we’ll use this to teach a base Stable Diffusion model to recognize and produce images of “the oxenai ox”, our company mascot-to-be.</p>
+<p>Here’s a quick preview of the results we’ll be able to achieve with only a few minutes of training on only six images.</p>
+<p><img src="images/comparison-ox.png" /></p>
+<p>These are some pretty exciting results, both in the increased coherence and consistency of the generated images, and the ease with which we could teach the model to recognize “the oxenai ox” as a specific token. Let’s get started!</p>
+<h2 id="software-setup">Software setup</h2>
+<p>This tutorial uses resources from <a href="https://huggingface.co/docs/diffusers/training/dreambooth">Hugging Face’s Dreambooth guide</a>, adapted for easier use with your own custom datasets via <a href="https://oxen.ai">Oxen</a>. The following contains all you’ll need to create your own Stable Diffusion character from scratch, but Hugging Face’s tutorial contains supplemental configuration details for anyone working with comparatively little GPU RAM. If you’re having trouble getting the model to train on your machine, check out <a href="https://huggingface.co/docs/diffusers/training/dreambooth">their walkthrough</a> for tips!</p>
+<h3 id="install-dependencies-and-boilerplate">Install dependencies and boilerplate</h3>
+<p>We’ll use the <code>diffusers</code> package to fine-tune our model with Dreambooth. Clone its GitHub repo locally and install it, along with its dependencies.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>git clone https:<span class="op">//</span>github.com<span class="op">/</span>huggingface<span class="op">/</span>diffusers</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>pip install <span class="op">-</span>U <span class="op">-</span>r diffusers<span class="op">/</span>examples<span class="op">/</span>dreambooth<span class="op">/</span>requirements.txt</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>cd diffusers</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>pip install <span class="op">-</span>e .</span></code></pre></div>
+<p>Set up a default <a href="https://github.com/huggingface/accelerate/">Accelerate</a> config for handle the boilerplate for running inference on GPUs:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># From a shell...</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">accelerate</span> config default</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ...or from a notebook</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> accelerate.utils <span class="im">import</span> write_basic_config </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>write_basic_config()</span></code></pre></div>
+<h3 id="getting-our-data-from-oxen">Getting our data from Oxen</h3>
+<p>Dreambooth’s strength lies in its ability to help a base model learn about a specific, named subject from only a few observations.</p>
+<p>Instead of hundreds / thousands of prompt-labeled examples (i.e., “A cute cartoon ox riding a surfboard”) we can just specify a unique named identifier for all the training examples (we used ”an image of the oxenai ox” to teach the model about our mascot-to-be) and pass in just the imagery.</p>
+<p>As such, this example will use the ox images stored in <a href="https://www.oxen.ai/ba/dreambooth-ox">this Oxen repo</a>. With some help from ChatGPT in generating a wide variety of ox-related prompts, we’ve collected a few hundred generated ox images in our target style from a variety of models (read how to set up your own image generation RLHF system <a href="https://blog.oxen.ai/collecting-data-from-human-feedback-for-generative-ai/">here</a>). Since Dreambooth works best with small but consistent datasets, we’ve selected the six oxen most consistent with our target style.</p>
+<figure>
+<img src="images/six-training-oxen.png" alt="Six AI-generated fluffy ox images" /><figcaption aria-hidden="true">Six AI-generated fluffy ox images</figcaption>
+</figure>
+<p>You can use any data you’d like here, but we’d recommend prioritizing quality and consistency over quantity to allow the model to learn as coherent a representation of your character as possible.</p>
+<p>Once you’ve built an Oxen repo with your own data (<a href="https://www.oxen.ai/ba/dreambooth-ox">here’s ours</a> for reference), pull it down into your local environment:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">oxen</span> clone https://www.oxen.ai/your-namespace/your-url-here</span></code></pre></div>
+<p>…well, that’s all it takes. We’re ready to train!</p>
+<h2 id="training-the-model">Training the model</h2>
+<h3 id="establishing-a-baseline">Establishing a baseline</h3>
+<p>Let’s first set up a way to view the results of both the base and fine-tuned models on similar prompts. <code>gradio</code> is a great tool to set up quick UIs for this exact purpose.</p>
+<p>The code for building this interface is available <a href="https://github.com/Oxen-AI/examples/tree/main/examples/dreambooth_custom_character/code">here</a> and more extensively documented in our tutorial on <a href="https://blog.oxen.ai/collecting-data-from-human-feedback-for-generative-ai/">collecting human feedback data for generative AI</a>.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install gradio</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> StableDiffusionPipeline</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> gradio <span class="im">as</span> gr </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Run inference with the base stable diffusion model </span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>pipe <span class="op">=</span> StableDiffusionPipeline.from_pretrained(<span class="st">&quot;CompVis/stable-diffusion-v1-4&quot;</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>pipe.to(<span class="st">&quot;cuda&quot;</span>) <span class="co"># If using CUDA for GPU</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> generate_images(prompt):</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    images <span class="op">=</span> pipe(prompt, guidance_scale<span class="op">=</span><span class="fl">7.5</span>, num_images_per_prompt<span class="op">=</span><span class="dv">4</span>).images</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> images </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> gr.Blocks() <span class="im">as</span> demo: </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> gr.components.Textbox(label<span class="op">=</span><span class="st">&quot;Enter Prompt&quot;</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    generate <span class="op">=</span> gr.Button(<span class="st">&quot;Generate candidate images&quot;</span>) </span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    images <span class="op">=</span> {}</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> gr.Row()</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>,<span class="dv">5</span>):</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">with</span> gr.Column():</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>                images[i] <span class="op">=</span> gr.components.Image(label<span class="op">=</span><span class="ss">f&quot;Candidate Image </span><span class="sc">{i}</span><span class="ss">&quot;</span>, <span class="bu">type</span><span class="op">=</span><span class="st">&#39;pil&#39;</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    generate.click(generate_images, inputs<span class="op">=</span>prompt, outputs<span class="op">=</span><span class="bu">list</span>(images.values()))</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>demo.launch(share<span class="op">=</span><span class="va">True</span>)</span></code></pre></div>
+<p>This yields us the following UI, which we can use to generate some sample results for the base model (we used CompVis/stable-diffusion-v1-4, but feel free to experiment with others) across 3 prompting strategies. We’ll revisit these three prompts after our fine-tuning step to see what the model has learned!</p>
+<p><img src="images/happy-fluffy-before.png" /> <img src="images/oxenai-ox-before.png" /> <img src="images/plain-ox-before.png" /></p>
+<h3 id="fine-tuning-with-dreambooth">Fine-tuning with Dreambooth</h3>
+<p>The model training script we’ll use is in the <code>diffusers</code> git repository we cloned earlier, at path <code>diffusers/examples/dreambooth/train_dreambooth.py</code>.</p>
+<p>We’ll first set a few variables to correctly parameterize the script for our custom use case:</p>
+<ul>
+<li><code>MODEL_NAME</code>: base model to start with from Hugging Face</li>
+<li><code>INSTANCE_DIR</code>: directory containing our imagery for fine-tuning - will point to the <code>images</code> folder in our oxen repo</li>
+<li><code>OUTPUT_DIR</code>: name of the model output folder (and the model name if uploading to Huggingface)</li>
+<li><code>INSTANCE_PROMPT</code>: the unique “name” of the subject we want the model to learn</li>
+</ul>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">MODEL_NAME</span> <span class="va">=</span> <span class="st">&quot;CompVis/stable-diffusion-v1-4&quot;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">INSTANCE_DIR</span> <span class="va">=</span> <span class="st">&quot;./dreambooth-ox/images&quot;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">OUTPUT_DIR</span> <span class="va">=</span> <span class="st">&quot;stable-diffusion-oxified&quot;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">INSTANCE_PROMPT</span> <span class="va">=</span> <span class="st">&quot;an image of the oxenai ox&quot;</span></span></code></pre></div>
+<p>We’re now set to run the script. All below flags use Hugging Face’s recommended settings. You’ll be directed by the CLI to authenticate with Hugging Face.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">accelerate</span> launch diffusers/examples/dreambooth/train_dreambooth.py <span class="dt">\</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--pretrained_model_name_or_path</span><span class="op">=</span><span class="va">$MODEL_NAME</span>  <span class="dt">\</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--instance_data_dir</span><span class="op">=</span><span class="va">$INSTANCE_DIR</span> <span class="dt">\</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output_dir</span><span class="op">=</span><span class="va">$OUTPUT_DIR</span> <span class="dt">\</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--instance_prompt</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$INSTANCE_PROMPT</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resolution</span><span class="op">=</span>512 <span class="dt">\</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--train_batch_size</span><span class="op">=</span>1 <span class="dt">\</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">--gradient_accumulation_steps</span><span class="op">=</span>1 <span class="dt">\</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">--learning_rate</span><span class="op">=</span>5e-6 <span class="dt">\</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">--lr_scheduler</span><span class="op">=</span><span class="st">&quot;constant&quot;</span> <span class="dt">\</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">--lr_warmup_steps</span><span class="op">=</span>0 <span class="dt">\</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">--max_train_steps</span><span class="op">=</span>400 <span class="dt">\</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">--push_to_hub</span></span></code></pre></div>
+<p>This took around 5 minutes to run on a single NVIDIA A10 with 24GB of GPU VRAM, which we rented from <a href="https://lambdalabs.com/">Lambda Labs</a>.</p>
+<h3 id="generating-new-images">Generating new images</h3>
+<p>If the <code>--push_to_hub</code> flag was set, the script will have pushed the resulting model up to Hugging Face after training. As such, we can modify our inference UI code as following to run inference on the new model:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run inference with the base stable diffusion model </span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co">#OLD: pipe = StableDiffusionPipeline.from_pretrained(&quot;CompVis/stable-diffusion-v1-4&quot;)</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">#NEW: </span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>pipe <span class="op">=</span> StableDiffusionPipeline.from_pretrained(<span class="st">&quot;&lt;your-hf-username&gt;/stable-diffusion-oxified&quot;</span>)</span></code></pre></div>
+<h3 id="results">Results</h3>
+<p>Let’s compare the models using the same 3 prompts we applied pre-Dreambooth.</p>
+<p><img src="images/happy-fluffy-after.png" /> <img src="images/oxenai-ox-after.png" /> <img src="images/plain-ox-after.png" /></p>
+<p>Lots of cool differences across these three prompting strategies to unpack here! Some key takeaways:</p>
+<ol type="1">
+<li>The model has become shockingly good at producing new observations in our target ox style given how few training observations it has seen. This is the core competence of Dreambooth, and we’re really impressed with how it turned out!</li>
+<li>As expected, the model is best at recalling our specific ox style when we use our training token, <code>an image of the oxenai ox</code>. In the third prompt, where we reference just <code>an ox</code>, the model’s underlying understanding of what an ox looks like from its original training data still shines through (though conditioned slightly by our examples—see the white fur and prominent horns).</li>
+<li>Even without explicit mention of the <code>oxenai ox</code> token, this fine-tuning has made the model more capable of producing cartoonish, fuzzy oxen—just look at the gap in coherence between the pre- and post-Dreambooth results for the first prompt!</li>
+</ol>
+<h3 id="whats-next">What’s next?</h3>
+<p>Though these early results are promising, the model still struggles a bit in domains dramatically different from the fine-tuning images. <img src="images/surfing-fail.png" alt="4 rendered images in response to the prompt “an image of the oxenai ox surfing”, in which three are just humans and only one appears to be a cartoon ox" /></p>
+<p>Additionally, it’s nailed the general characteristics of our desired ox (cute, cartoonish, fuzzy) and is showing much-improved consistency, but isn’t yet able to produce a singular, recognizable character.</p>
+<p>As an attempt to solve both these issues, we’re going to use this new model (and an <a href="https://blog.oxen.ai/collecting-data-from-human-feedback-for-generative-ai/">Oxen-powered RLHF interface</a>) to gain further, prompt-specific feedback for additional fine-tuning. We think that this will be key in bridging the gap to a generalizable, consistent character—stay tuned for the results!</p>
+<p>At OxenAI we want to see what you are building! Reach out at hello@oxen.ai, follow us on Twitter <span class="citation" data-cites="oxendrove">[@oxendrove]</span>(https://twitter.com/oxendrove), dive deeper into the <a href="https://github.com/Oxen-AI/oxen-release">documentation</a>, or <strong>Sign up for Oxen today. http://oxen.ai/register.</strong></p>
+<p>And remember—for every star on <a href="https://github.com/Oxen-AI/oxen-release">GitHub</a>, an ox gets its wings.</p>
+<p>No, really…we hooked up an <a href="https://oxen.ai/ox/FlyingOxen">Oxen repo</a> to a GitHub web-hook that runs Stable Diffusion every time we get a star. <a href="https://oxen.ai/ox/FlyingOxen">Go find yours!</a></p>
+<figure>
+<img src="images/winged.png" alt="An AI-generated image of a purple, magestic, winged space ox" /><figcaption aria-hidden="true">An AI-generated image of a purple, magestic, winged space ox</figcaption>
+</figure>
