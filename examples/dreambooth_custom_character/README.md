@@ -23,13 +23,7 @@ Dreambooth excels at teaching models new tokens which weren't present in the ori
 Here's a quick preview of the results we'll be able to achieve with only a few minutes of training on only six images.
 
 
-**Before Dreambooth:**
-![4 generated images under the prompt "an image of a happy white fluffy cartoon ox eating almonds", showing limited coherence / consistency](images/happy-fluffy-before.png)
-![4 generated images under the prompt "the oxenai ox eating almonds", showing limited coherence / consistency](images/oxenai-ox-before.png)
-
-**After Dreambooth:**
-![4 generated images under the same "fluffy cartoon ox" prompt as above, but more stylistically coherent](images/happy-fluffy-after.png)
-![4 generated images under the same "oxenai ox" prompt as above, but more stylistically coherent](images/oxenai-ox-after.png)
+![](images/comparison-ox.png)
 
 These are some pretty exciting results, both in the increased coherence and consistency of the generated images, and the ease with which we could teach the model to recognize "the oxenai ox" as a specific token. Let's get started!
 
