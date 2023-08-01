@@ -3,15 +3,22 @@
 ## Introduction
 [Stable Diffusion](https://github.com/CompVis/stable-diffusion) is an incredible open-source tool for fast, effective generation of novel images across a wide variety of domains. Despite its power and convenience, it can struggle to create consistent, identifiable characters in specific styles.
 
-While improvements in prompting can mitigate this to some extent, it is almost always a better bet to fine-tune the model with your own data. Here are a few reasons why: 
+
+At [Oxen](https://oxen.ai/), we’re firm believers in the power of enhancing foundational models with domain-specific data. In this tutorial, we’ll use an Oxen repository and the [Dreambooth](https://dreambooth.github.io/) fine-tuning technique to create a Stable Diffusion variant that can consistently reproduce cute, fluffy cartoon oxen like the one currently hanging out on our 404 page.
+
+![The 404 Not Found page for oxen.ai, showing a cute cartoon ox](images/404.png)
+
+### Why fine-tune?
+
+While improvements in prompting can mitigate Stable Diffusion's limitations to some extent, it is almost always a better bet to fine-tune the model with your own data. Here are a few reasons why: 
 
 1. No amount of clever prompting can lead the neural network to generate things it hasn’t seen enough of in its training data. We’re pretty confident there wasn’t a preponderance of fluffy cartoon oxen in [Stable Diffusion’s training data](https://laion.ai/blog/laion-5b/), which leads to the lackluster baseline results we’ll show below. It’s much easier for us to provide this information to the model directly than to wait and hope that a future version of Stable Diffusion will somehow find and include precisely the data we’re looking for.
 2. If you train or fine-tune open source models with your own data rather than remaining beholden to third-party services, you can embed the model directly into your application. This will likely save you money over purchasing credits to existing providers, and eliminate your dependency on a vendor that could change its API / pricing or stop operating at any time.
 3. Fine-tuning with your own proprietary data allows you to gain a competitive advantage that you can’t access with prompting alone. If your IP relies solely on the specific way you prompt a publicly accessible model, it’s much easier for competitors to replicate your results!
 
-At [Oxen](https://oxen.ai/), we’re firm believers in the power of enhancing foundational models with domain-specific data. In this tutorial, we’ll use an Oxen repository and the [Dreambooth](https://dreambooth.github.io/) fine-tuning technique to create a Stable Diffusion variant that can consistently reproduce cute, fluffy cartoon oxen like the one currently hanging out [on our 404 page](https://www.oxen.ai/not-a-real-url).
+### Fine-tuning new tokens 
 
-![The 404 Not Found page for oxen.ai, showing a cute cartoon ox](images/404.png)
+Dreambooth excels at teaching models new tokens which weren't present in the original training data. This makes it perfect for generating novel, named characters—we'll use this to teach a base Stable Diffusion model to recognize and produce images of "the oxenai ox", our company mascot-to-be.
 
 Here's a quick preview of the results we'll be able to achieve with only a few minutes of training on only six images.
 
@@ -195,6 +202,6 @@ At OxenAI we want to see what you are building! Reach out at hello@oxen.ai, foll
 
 And remember—for every star on [GitHub](https://github.com/Oxen-AI/oxen-release), an ox gets its wings.
 
-[No, really...go check it out!](https://oxen.ai/ox/FlyingOxen) 
+No, really—we hooked up an Oxen Repo to a GitHub webhook to generate and save a Stable Diffusion image every time we get a star. [Go find yours!](https://oxen.ai/ox/FlyingOxen) 
 
-![An AI-generated image of a purple, magestic, winged space ox](images/winged-ox.png)
+![An AI-generated image of a purple, magestic, winged space ox](images/winged.png)
