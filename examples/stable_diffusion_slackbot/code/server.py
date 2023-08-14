@@ -45,18 +45,18 @@ def commit_df_to_oxen(row):
     try:
         repo.add_df_row(DF_PATH, row)
         print("time to add row", time.time() - start_commit)
+        repo.commit(f"Remote commit - {row['rater']} voting on image {row['path'].split('/')[-1]}")
     except Exception as e:
         print('Error adding df row to Oxen', e)    
-    repo.commit(f"Remote commit - {row['rater']} voting on image {row['path'].split('/')[-1]}")
     print(f"Time to commit: {time.time() - start_commit}")
 
 def commit_image_to_oxen(filepath):
     start_time_image = time.time()
     try:
         repo.add(filepath, IMAGE_DIR)
+        repo.commit(f"Adding image image {filepath.split('/')[-1]}")
     except Exception as e:
         print('Error adding image to Oxen', e)
-    repo.commit(f"Adding image image {filepath.split('/')[-1]}")
     print(f"Time to commit image: {time.time() - start_time_image}")
 
 def download_image(url, image_id):

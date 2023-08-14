@@ -2,11 +2,12 @@
 
 ## Introduction
 
-Reinforcement Learning from Human Feedback (RLHF) is a powerful tool for improving the performance and alignment of generative models through the direct incorporation of human preferences into model reward functions. While its benefits for both [language modeling](https://arxiv.org/abs/2009.01325) and [image generation](https://arxiv.org/pdf/2302.12192.pdf) applications are well-documented, the pathways to the actual collection of this human evaluation data are often difficult and unclear.
+Reinforcement Learning from Human Feedback (RLHF) is a powerful tool for improving the performance and alignment of generative models through the direct incorporation of human preferences into model reward functions. While this technique has already seen huge successes in improving accuracy, task alignment, and prompt relevance in foundation-scale [language](https://arxiv.org/abs/2009.01325) and [image](https://arxiv.org/abs/2302.12192) models, we're looking to test its mettle on a new challenge: teaching an image generation model to produce a maximally cute cartoon Ox mascot. 
 
-At Oxen, we provide a suite of dataset version control tooling that makes this data collection process fast, secure, and infinitely integrable with platforms your team and users already love. 
+In this tutorial, we’ll build an image generation Slackbot that will automatically collect our team’s preference data on generated cartoon oxen (via 👍 and 👎 reaction emojis) to help us build a large, human-annotated data repository with which to fine-tune the ultimate Oxen.ai mascot generator.
 
-In this tutorial, we’ll build an image generation Slackbot that will automatically collect our team’s preference data on generated cartoon oxen (via 👍 and 👎 reaction emojis) to help us refine our ever-improving [Oxen.ai mascot generation model](https://blog.oxen.ai/creating-a-cute-custom-character-with-stable-diffusion-and-dreambooth/).
+**Here's how it works**:
+
 
 The bot will render ox images in response to prompts from our team with the `/ox` slash command:
 
@@ -28,6 +29,9 @@ We’ll need to set up a few key components to make this all work smoothly.
 **Image generation model**
 
 - We’ll use the [`diffusers`](https://github.com/huggingface/diffusers) library and a stable diffusion model hosted on Hugging Face to generate our images. We’re using a model we’ve previously fine-tuned to generate cute cartoonish Oxen (see this tutorial), but is based off of `CompVis/stable-diffusion-v1-4`, which is a great starting point.
+
+**Serverless GPU compute**
+- Modal Labs[Modal Labs](https://modal.com/docs/guide/ex/stable_diffusion_slackbot) is a great resource for fast and affordable serverless GPU compute. Their [Lambda Stack](https://lambdalabs.com/lambda-stack-deep-learning-software) is tailored to deep learning workflows and makes it easy to get up and running with a GPU instance in no time. We’ll use this to generate our images in response to Slackbot commands.
 
 **Data versioning and storage**
 
@@ -97,7 +101,7 @@ This will yield a URL that forwards to the Flask app running locally on port 808
 
 We can use the same Slackbot created in the Modal tutorial, but need to add some additional permissions and configuration options. 
 
-In your app’s dashboard on [api.slack.com/apps](https://www.notion.so/bf41cc39e9c3400fa64c139c74ab17ab?pvs=21), open the **************************************Event Subscriptions************************************** tab. 
+In your app’s dashboard on [api.slack.com/apps](https://www.notion.so/bf41cc39e9c3400fa64c139c74ab17ab?pvs=21), open the **Event Subscriptions** tab. 
 
 Scroll down to the `Subscribe to Bot Events` dropdown: 
 
@@ -252,11 +256,11 @@ Then remotely commit the image:
 ```python
 IMAGE_DIR = "images"
 def commit_image_to_oxen(filepath): 
-	try:
-      repo.add(filepath, IMAGE_DIR)
-  except Exception as e:
-      print('Error adding image to Oxen', e)
-  repo.commit(f"Adding image image {filepath.split('/')[-1]}")
+    try:
+        repo.add(filepath, IMAGE_DIR)
+        repo.commit(f"Adding image image {filepath.split('/')[-1]}")
+    except Exception as e:
+        print('Error adding image to Oxen', e)
 	# Local cleanup
 	os.remove(filepath)
 ```
@@ -378,9 +382,9 @@ DF_PATH = "annotations/train.csv"
 def commit_df_to_oxen(row):
     try:
         repo.add_df_row(DF_PATH, row)
+        repo.commit(f"Remote commit - {row['rater']} voting on image {row['path'].split('/')[-1]}")
     except Exception as e:
         print('Error adding df row to Oxen', e)    
-    repo.commit(f"Remote commit - {row['rater']} voting on image {row['path'].split('/')[-1]}")
 ```
 
 **5. Put it all together…**
