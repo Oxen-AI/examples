@@ -8,18 +8,18 @@ import gradio as gr
 import shortuuid
 from oxen import RemoteRepo
 
-# Config Oxen
-repo = RemoteRepo("ba/active-learning-test")
-repo.checkout("dev")
 
 # Config model training
 pipe = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
 # pipe = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-0.9", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
 pipe.to("cuda")
 
+# Config Oxen
+repo = RemoteRepo("ba/active-learning-test")
+repo.checkout("dev")
+
 IMAGE_DEST="images"
 NUM_IMAGES = 4
-
 
 def generate_images(prompt):
     images = pipe(prompt, guidance_scale=7.5, num_images_per_prompt=NUM_IMAGES).images
